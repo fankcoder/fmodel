@@ -13,14 +13,16 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from data import TokenBlockDataset, encode_text, load_tokenizer
+from data import MemmapTokenBlockDataset, TokenBlockDataset, encode_text, load_tokenizer
 from model import TinyGPT, TinyGPTConfig, count_parameters
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train Tiny GPT from scratch.")
-    parser.add_argument("--train-text", required=True)
+    parser.add_argument("--train-text")
     parser.add_argument("--valid-text", default=None)
+    parser.add_argument("--train-bin", help="prepared uint16 train token file")
+    parser.add_argument("--valid-bin", help="prepared uint16 validation token file")
     parser.add_argument("--tokenizer", required=True)
     parser.add_argument("--output-dir", default="artifacts/checkpoints")
     parser.add_argument("--batch-size", type=int, default=8)
@@ -82,6 +84,10 @@ def save_inference_model(path: Path, model: TinyGPT) -> None:
 
 def main() -> None:
     args = parse_args()
+    if bool(args.train_text) == bool(args.train_bin):
+        raise ValueError("provide exactly one of --train-text or --train-bin")
+    if args.train_bin and not args.valid_bin:
+        raise ValueError("--valid-bin is required with --train-bin")
     seed_everything(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     amp_enabled = device.type == "cuda" and not args.no_amp
@@ -92,14 +98,21 @@ def main() -> None:
     if config.vocab_size != 8000:
         print(f"Warning: tokenizer vocab is {config.vocab_size}; expected 8000 for the ~14M configuration.")
 
-    train_tokens = encode_text(args.train_text, tokenizer)
-    if args.valid_text:
-        valid_tokens = encode_text(args.valid_text, tokenizer)
+    if args.train_bin:
+        train_data = MemmapTokenBlockDataset(args.train_bin, config.context_length)
+        valid_data = MemmapTokenBlockDataset(args.valid_bin, config.context_length)
+        train_token_count = len(train_data.tokens)
+        valid_token_count = len(valid_data.tokens)
     else:
-        split_at = int(len(train_tokens) * 0.99)
-        train_tokens, valid_tokens = train_tokens[:split_at], train_tokens[split_at:]
-    train_data = TokenBlockDataset(train_tokens, config.context_length)
-    valid_data = TokenBlockDataset(valid_tokens, config.context_length)
+        train_tokens = encode_text(args.train_text, tokenizer)
+        if args.valid_text:
+            valid_tokens = encode_text(args.valid_text, tokenizer)
+        else:
+            split_at = int(len(train_tokens) * 0.99)
+            train_tokens, valid_tokens = train_tokens[:split_at], train_tokens[split_at:]
+        train_data = TokenBlockDataset(train_tokens, config.context_length)
+        valid_data = TokenBlockDataset(valid_tokens, config.context_length)
+        train_token_count, valid_token_count = len(train_tokens), len(valid_tokens)
     pin_memory = device.type == "cuda"
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=pin_memory, drop_last=True)
     valid_loader = DataLoader(valid_data, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=pin_memory)
@@ -119,7 +132,7 @@ def main() -> None:
 
     (output_dir / "config.json").write_text(json.dumps(asdict(config), indent=2), encoding="utf-8")
     print(f"Device: {device}; parameters: {count_parameters(model):,}; AMP: {amp_enabled}")
-    print(f"Train tokens: {len(train_tokens):,}; validation tokens: {len(valid_tokens):,}")
+    print(f"Train tokens: {train_token_count:,}; validation tokens: {valid_token_count:,}")
     train_iter = iter(train_loader)
     autocast = torch.cuda.amp.autocast if device.type == "cuda" else nullcontext
     progress = tqdm(range(start_step, args.max_steps), initial=start_step, total=args.max_steps)

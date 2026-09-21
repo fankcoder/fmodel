@@ -42,6 +42,13 @@ python tokenizer.py --input data/raw/tinystories.txt --output-dir artifacts/toke
 python train.py --train-text data/raw/tinystories.txt --tokenizer artifacts/tokenizer/tinystories.model --batch-size 8 --grad-accum-steps 4 --max-steps 20000
 ```
 
+完整 TinyStories 不应直接整体加载进内存。正式训练前，先生成内存映射 token 文件：
+
+```powershell
+python prepare_data.py --input D:\code\TinyStories-train.txt --tokenizer artifacts/tokenizer/tinystories.model --output-dir artifacts/data
+python train.py --train-bin artifacts/data/train.bin --valid-bin artifacts/data/valid.bin --tokenizer artifacts/tokenizer/tinystories.model --batch-size 8 --grad-accum-steps 4 --max-steps 20000
+```
+
 显存不足时仅依次降低 `--batch-size`（8 → 4 → 2）。训练输出保存在 `artifacts/checkpoints/`；可以通过 `--resume` 恢复训练。
 
 `last.pt` 是可恢复训练的完整 checkpoint（含 AdamW 状态，因此比权重本身大得多）；`model.pt` 是仅供生成和导出的模型权重，FP32 时约 53MB。
