@@ -35,6 +35,16 @@ class TinyGPTTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "top_k must be positive"):
             self.model.generate(tokens, max_new_tokens=1, top_k=0)
 
+    def test_config_rejects_invalid_dimensions(self) -> None:
+        with self.assertRaisesRegex(ValueError, "n_layers must be positive"):
+            TinyGPTConfig(n_layers=0)
+        with self.assertRaisesRegex(ValueError, "d_model must be divisible"):
+            TinyGPTConfig(d_model=10, n_heads=3)
+
+    def test_config_rejects_invalid_dropout(self) -> None:
+        with self.assertRaisesRegex(ValueError, "dropout must be between 0 and 1"):
+            TinyGPTConfig(dropout=1.1)
+
 
 if __name__ == "__main__":
     unittest.main()
