@@ -1,5 +1,7 @@
 # Tiny GPT from scratch
 
+[![Tests](https://github.com/fankcoder/fmodel/actions/workflows/tests.yml/badge.svg)](https://github.com/fankcoder/fmodel/actions/workflows/tests.yml)
+
 一个用于学习 Decoder-only Transformer 训练全流程的约 14M 参数 GPT。
 
 配置固定为：词表 8,000、6 层、`d_model=384`、6 个注意力头、`FFN=1536`、上下文长度 256，并且 Token Embedding 与 LM Head 权重共享。
