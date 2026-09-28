@@ -21,6 +21,20 @@ class TinyGPTConfig:
     dropout: float = 0.1
 
     def __post_init__(self) -> None:
+        if self.vocab_size <= 0:
+            raise ValueError("vocab_size must be positive")
+        if self.context_length <= 0:
+            raise ValueError("context_length must be positive")
+        if self.n_layers <= 0:
+            raise ValueError("n_layers must be positive")
+        if self.d_model <= 0:
+            raise ValueError("d_model must be positive")
+        if self.n_heads <= 0:
+            raise ValueError("n_heads must be positive")
+        if self.ffn_hidden <= 0:
+            raise ValueError("ffn_hidden must be positive")
+        if not 0 <= self.dropout <= 1:
+            raise ValueError("dropout must be between 0 and 1")
         if self.d_model % self.n_heads != 0:
             raise ValueError("d_model must be divisible by n_heads")
 
