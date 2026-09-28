@@ -130,6 +130,8 @@ class TinyGPT(nn.Module):
     def generate(self, token_ids: Tensor, max_new_tokens: int, temperature: float = 1.0, top_k: int | None = None) -> Tensor:
         if temperature <= 0:
             raise ValueError("temperature must be positive")
+        if top_k is not None and top_k <= 0:
+            raise ValueError("top_k must be positive")
         for _ in range(max_new_tokens):
             logits, _ = self(token_ids[:, -self.config.context_length :])
             next_logits = logits[:, -1, :] / temperature
