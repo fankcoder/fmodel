@@ -30,6 +30,11 @@ class TinyGPTTests(unittest.TestCase):
     def test_parameter_count_is_tiny_scale(self) -> None:
         self.assertEqual(count_parameters(TinyGPT(TinyGPTConfig())), 13_808_640)
 
+    def test_generate_rejects_non_positive_top_k(self) -> None:
+        tokens = torch.tensor([[1, 2]])
+        with self.assertRaisesRegex(ValueError, "top_k must be positive"):
+            self.model.generate(tokens, max_new_tokens=1, top_k=0)
+
 
 if __name__ == "__main__":
     unittest.main()
